@@ -31,31 +31,49 @@ def _sanitize_for_hwpx(text: str) -> str:
     return text
 
 
+DEFAULT_LINESEG = (
+    '<hp:linesegarray>'
+    '<hp:lineseg textpos="0" vertpos="0" vertsize="1100" '
+    'textheight="1100" baseline="935" spacing="164" horzpos="0" '
+    'horzsize="31508" flags="393216"/>'
+    '</hp:linesegarray>'
+)
+
+
 def make_paragraph_xml(text: str, char_pr_id: str = CHARPR_BLACK,
-                       is_first: bool = True) -> str:
-    """원본 update_hwpx.py 와 동일한 하드코딩 방식.
-    단순하고 검증된 구조라 한글이 안전하게 파싱."""
+                       is_first: bool = True,
+                       lineseg_xml: str = DEFAULT_LINESEG) -> str:
+    """단순 하드코딩된 <hp:p> 블록 생성. lineseg 는 셀별로 바꿀 수 있음."""
     escaped = html.escape(_sanitize_for_hwpx(text))
     pid = "2147483648" if is_first else "0"
     return (
         f'<hp:p id="{pid}" paraPrIDRef="27" styleIDRef="0" '
         f'pageBreak="0" columnBreak="0" merged="0">'
         f'<hp:run charPrIDRef="{char_pr_id}"><hp:t>{escaped}</hp:t></hp:run>'
-        f'<hp:linesegarray>'
-        f'<hp:lineseg textpos="0" vertpos="0" vertsize="1100" '
-        f'textheight="1100" baseline="935" spacing="164" horzpos="0" '
-        f'horzsize="31508" flags="393216"/>'
-        f'</hp:linesegarray></hp:p>'
+        f'{lineseg_xml}</hp:p>'
     )
 
 
-def make_cell_content(text: str, char_pr_id: str = CHARPR_BLACK) -> str:
+def make_cell_content(text: str, char_pr_id: str = CHARPR_BLACK,
+                      lineseg_xml: str = DEFAULT_LINESEG) -> str:
     """여러 줄 텍스트를 여러 <hp:p> 문단으로 변환."""
     lines = (text or "").splitlines() or [""]
     return "".join(
-        make_paragraph_xml(line, char_pr_id=char_pr_id, is_first=(i == 0))
+        make_paragraph_xml(line, char_pr_id=char_pr_id,
+                           is_first=(i == 0), lineseg_xml=lineseg_xml)
         for i, line in enumerate(lines)
     )
+
+
+def extract_cell_lineseg(xml: str, col: int, row: int, nth: int = 0) -> str:
+    """해당 셀의 원본 <hp:linesegarray> 를 추출 (셀 너비 정보 보존).
+    없으면 DEFAULT_LINESEG 반환."""
+    start, end = find_cell_sublist(xml, col, row, nth=nth)
+    if start is None:
+        return DEFAULT_LINESEG
+    content = xml[start:end]
+    m = re.search(r'<hp:linesegarray>.*?</hp:linesegarray>', content, re.DOTALL)
+    return m.group(0) if m else DEFAULT_LINESEG
 
 
 def find_cell_sublist(xml, col, row, nth=0):
@@ -82,12 +100,15 @@ def find_cell_sublist(xml, col, row, nth=0):
 
 
 def replace_cell(xml, col, row, text, override_color_id=None, nth=0):
-    """셀 내용을 새 <hp:p> 블록으로 교체. 하드코딩된 구조 사용."""
+    """셀 내용을 새 <hp:p> 블록으로 교체. lineseg 는 원본 셀에서 추출하여
+    셀 너비에 맞는 자간 유지."""
     start, end = find_cell_sublist(xml, col, row, nth=nth)
     if start is None:
         return xml
     char_pr = override_color_id if override_color_id is not None else CHARPR_BLACK
-    new_content = make_cell_content(text, char_pr_id=char_pr)
+    lineseg = extract_cell_lineseg(xml, col, row, nth=nth)
+    new_content = make_cell_content(text, char_pr_id=char_pr,
+                                    lineseg_xml=lineseg)
     return xml[:start] + new_content + xml[end:]
 
 
