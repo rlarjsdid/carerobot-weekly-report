@@ -15,11 +15,23 @@ CHARPR_BLACK = "15"
 COLOR_HEX = {"black": "#000000", "blue": "#0000FF"}
 
 
+def _sanitize_for_hwpx(text: str) -> str:
+    """한글 HWPX 파서가 싫어하는 문자 정리.
+    - 백슬래시(\\): 한글이 이스케이프 문자로 잘못 해석하는 것으로 추정. 제거.
+    - 그 외 비정상적 whitespace: 정상 공백으로 치환.
+    """
+    if not text:
+        return ""
+    # 백슬래시 제거
+    text = text.replace("\\", "")
+    return text
+
+
 def make_paragraph_xml(text: str, char_pr_id: str = CHARPR_BLACK,
                        is_first: bool = True) -> str:
     """원본 update_hwpx.py 와 동일한 하드코딩 방식.
     단순하고 검증된 구조라 한글이 안전하게 파싱."""
-    escaped = html.escape(text)
+    escaped = html.escape(_sanitize_for_hwpx(text))
     pid = "2147483648" if is_first else "0"
     return (
         f'<hp:p id="{pid}" paraPrIDRef="27" styleIDRef="0" '
