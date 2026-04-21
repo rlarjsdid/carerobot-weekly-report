@@ -47,7 +47,12 @@ def _clone_paragraph_with_text(p_template_xml: str, line_text: str,
                            rf'<hp:run\1><hp:t>{escaped}</hp:t></hp:run>',
                            new_p, count=1)
 
-    if not first_paragraph:
+    # 원본 HWPX 관습: 각 셀의 첫 문단 id=2147483648, 나머지 id=0
+    # (업데이트된 원본 04.15 파일 분석: id=2147483648 이 88.8% 차지)
+    if first_paragraph:
+        new_p = re.sub(r'(<hp:p\s+)id="\d+"',
+                       r'\1id="2147483648"', new_p, count=1)
+    else:
         new_p = re.sub(r'(<hp:p\s+)id="\d+"', r'\1id="0"', new_p, count=1)
     if override_color_id is not None:
         new_p = re.sub(r'(<hp:run\b[^/>]*charPrIDRef=")\d+(")',
