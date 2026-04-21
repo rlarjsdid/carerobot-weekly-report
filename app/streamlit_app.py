@@ -651,6 +651,58 @@ def admin_page():
                 finally:
                     he._patch_zip_flag_bits = original_patch
 
+            st.markdown("---")
+            st.caption("**팀원별 이분법**: 특정 팀원 데이터가 깨뜨리는지 확인")
+
+            # 한 팀원씩 포함하여 테스트 (나머지는 지난주 fallback)
+            test_members = st.multiselect(
+                "실제 데이터 넣을 팀원 선택 (나머지는 빈 값)",
+                MEMBER_NAMES,
+                default=[],
+                key="debug_members",
+            )
+            if st.button("🔬 Lv9: 선택한 팀원만 실제 데이터",
+                         use_container_width=True):
+                real_data = load_week(week)
+                last_week_str = (wed - timedelta(days=7)).strftime("%Y-%m-%d")
+                last_week_real = load_week(last_week_str)
+                # merge 지난주 → 이번주
+                full_data = {}
+                for name in MEMBER_NAMES:
+                    cur = real_data.get(name, {})
+                    last = last_week_real.get(name, {})
+                    merged = dict(last)
+                    for k, v in cur.items():
+                        if v:
+                            merged[k] = v
+                    if merged:
+                        full_data[name] = merged
+
+                # test_members 에 포함된 팀원만 실제 데이터 유지, 나머지는 빈 값
+                filtered = {}
+                for name in test_members:
+                    if name in full_data:
+                        filtered[name] = full_data[name]
+
+                src = debug_tpl.read_bytes()
+                result = build_report(
+                    src, filtered,
+                    title_date=wed.strftime("%y.%m.%d."),
+                    period_start=(wed - timedelta(days=7)).strftime("%Y.%m.%d."),
+                    period_end=(wed - timedelta(days=1)).strftime("%Y.%m.%d."),
+                    plan_start=wed.strftime("%Y.%m.%d."),
+                    plan_end=(wed + timedelta(days=6)).strftime("%Y.%m.%d."),
+                )
+                name_label = "_".join(test_members[:3]) if test_members else "empty"
+                st.download_button(
+                    "💾 Lv9 다운로드",
+                    data=result,
+                    file_name=f"DEBUG_Lv9_{name_label}.hwpx",
+                    mime="application/octet-stream",
+                    use_container_width=True,
+                )
+                st.info(f"Lv9 = {len(test_members)}명만 실제 데이터, 나머지 빈 값.")
+
     # 수요일 기준(보고일): 실적=지난주 수요일~이번주 화요일, 계획=이번주 수요일~다음주 화요일
     period_start = (wed - timedelta(days=7)).strftime("%Y.%m.%d.")  # 지난주 수요일
     period_end = (wed - timedelta(days=1)).strftime("%Y.%m.%d.")    # 이번주 화요일
