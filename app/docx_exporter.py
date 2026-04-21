@@ -164,7 +164,7 @@ def build_docx(submissions: dict, title_date: str,
     tbl.columns[0].width = Mm(40)
     tbl.columns[1].width = Mm(237)
     row = tbl.rows[0]
-    row.height = Mm(170)
+    row.height = Mm(150)
     row.height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
     _set_cell_text(row.cells[0], "사업단 공통\n확인사항 1",
                    bold=True, align_center=True, font_size=11,
@@ -240,7 +240,7 @@ def _build_member_table(doc, member, data, period_header, plan_header):
         tbl = doc.add_table(rows=4, cols=6)
         for col, w in zip(tbl.columns, [12, 14, 14, 12, 115, 110]):
             col.width = Mm(w)
-        row_heights = [10, 18, 72, 85]
+        row_heights = [8, 15, 60, 75]
 
         # 헤더 행
         hdr = tbl.rows[0]
@@ -263,10 +263,15 @@ def _build_member_table(doc, member, data, period_header, plan_header):
                        vertical=True, font_size=10)
         _set_cell_text(acq_row.cells[3], "연구", align_center=True,
                        vertical=True, font_size=10)
-        # c4-c5 병합 획득데이터
+        # c4-c5 병합 획득데이터 (먼저 병합한 후 내용 입력 — 중복 방지)
         acq_merged = acq_row.cells[4].merge(acq_row.cells[5])
         acq_text = data.get("acquired_data", "").strip()
-        _set_cell_text(acq_merged, f"획득 데이터: {acq_text}",
+        # 이미 "획득 데이터:" 로 시작하면 그대로, 아니면 prefix 추가
+        if acq_text and not acq_text.startswith("획득 데이터"):
+            display_text = f"획득 데이터: {acq_text}"
+        else:
+            display_text = acq_text or "획득 데이터:"
+        _set_cell_text(acq_merged, display_text,
                        bold=True, color=BLUE, font_size=9)
 
         # 연구 실적/계획 행 (r=2)
@@ -323,8 +328,8 @@ def _build_member_table(doc, member, data, period_header, plan_header):
         _set_cell_text(t_row.cells[4], data.get("task_done", ""), font_size=9)
         _set_cell_text(t_row.cells[5], data.get("task_plan", ""), font_size=9)
 
-        tbl.rows[0].height = Mm(10)
-        tbl.rows[1].height = Mm(170)
+        tbl.rows[0].height = Mm(8)
+        tbl.rows[1].height = Mm(150)
         for r in tbl.rows:
             r.height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
 
