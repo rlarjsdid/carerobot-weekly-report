@@ -12,6 +12,7 @@ from team_config import (
 from sheets_store import load_week, save_submission, submission_status, FIELD_KEYS
 from hwpx_exporter import build_report
 from pdf_exporter import build_pdf
+from docx_exporter import build_docx
 
 st.set_page_config(page_title="돌봄로봇 주간 업무보고", page_icon="📋", layout="wide")
 
@@ -225,9 +226,43 @@ def admin_page():
         st.error("주차 형식이 잘못되었습니다 (YYYY-MM-DD).")
         return
 
-    # PDF 다운로드 섹션 — 기본 출력
-    st.markdown("### 📕 PDF (회의자료)")
-    st.caption("10명 업무보고 취합 PDF. 회의실에서 바로 띄우거나 출력 가능.")
+    # Word(.docx) 다운로드 섹션 — 기본 출력 (HWPX 대체)
+    st.markdown("### 📘 Word(.docx) — 회의자료 (권장)")
+    st.caption("한컴오피스·워드 모두에서 열림. 원본 HWPX 양식과 동일 구조.")
+
+    if st.button("📘 Word 생성 및 다운로드", type="primary", use_container_width=True):
+        try:
+            subs_for_docx = load_week(week)
+            last_week_str = (wed - timedelta(days=7)).strftime("%Y-%m-%d")
+            last_week_subs = load_week(last_week_str)
+            for name in MEMBER_NAMES:
+                if name not in subs_for_docx and name in last_week_subs:
+                    subs_for_docx[name] = last_week_subs[name]
+
+            docx_bytes = build_docx(
+                subs_for_docx,
+                title_date=wed.strftime("%y.%m.%d."),
+                period_start=(wed - timedelta(days=7)).strftime("%Y.%m.%d."),
+                period_end=(wed - timedelta(days=1)).strftime("%Y.%m.%d."),
+                plan_start=wed.strftime("%Y.%m.%d."),
+                plan_end=(wed + timedelta(days=6)).strftime("%Y.%m.%d."),
+            )
+            st.download_button(
+                "💾 Word 다운로드",
+                data=docx_bytes,
+                file_name=f"돌봄로봇_업무보고({wed.strftime('%m.%d')})_취합본.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True,
+            )
+            st.success("Word 파일 생성 완료. 한컴오피스 한글이나 MS Word에서 열립니다.")
+        except Exception as e:
+            st.error(f"Word 생성 실패: {e}")
+
+    st.markdown("---")
+
+    # PDF 다운로드 섹션 — 백업
+    st.markdown("### 📕 PDF (백업)")
+    st.caption("⚠️ 레이아웃 일부 이슈 있음. Word 우선 권장.")
 
     if st.button("📕 PDF 생성 및 다운로드", use_container_width=True):
         try:
