@@ -235,9 +235,16 @@ def admin_page():
             subs_for_docx = load_week(week)
             last_week_str = (wed - timedelta(days=7)).strftime("%Y-%m-%d")
             last_week_subs = load_week(last_week_str)
+            # 필드 단위 fallback: 이번주 비어있는 필드만 지난주 내용 사용
             for name in MEMBER_NAMES:
-                if name not in subs_for_docx and name in last_week_subs:
-                    subs_for_docx[name] = last_week_subs[name]
+                cur = subs_for_docx.get(name, {})
+                last = last_week_subs.get(name, {})
+                merged = dict(last)  # 지난주 값 기본
+                for k, v in cur.items():
+                    if v:  # 이번주 비어있지 않으면 덮어씀
+                        merged[k] = v
+                if merged:
+                    subs_for_docx[name] = merged
 
             docx_bytes = build_docx(
                 subs_for_docx,
