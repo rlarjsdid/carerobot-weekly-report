@@ -610,6 +610,47 @@ def admin_page():
                 )
                 st.info("Lv7 = build_report() + 10명 모두에게 멀티라인 테스트 데이터.")
 
+            # Level 8: 실제 데이터 + flag_bits 바이너리 패치 제거
+            if st.button("🔬 Lv8: 실제 데이터, flag_bits 패치 없이",
+                         use_container_width=True):
+                import hwpx_exporter as he
+                original_patch = he._patch_zip_flag_bits
+                # 패치 함수를 no-op 으로 임시 교체
+                he._patch_zip_flag_bits = lambda zip_bytes, original_infos: zip_bytes
+                try:
+                    subs_for = load_week(week)
+                    last_week_str = (wed - timedelta(days=7)).strftime("%Y-%m-%d")
+                    last_week_subs = load_week(last_week_str)
+                    for name in MEMBER_NAMES:
+                        cur = subs_for.get(name, {})
+                        last = last_week_subs.get(name, {})
+                        merged = dict(last)
+                        for k, v in cur.items():
+                            if v:
+                                merged[k] = v
+                        if merged:
+                            subs_for[name] = merged
+
+                    src = debug_tpl.read_bytes()
+                    result = build_report(
+                        src, subs_for,
+                        title_date=wed.strftime("%y.%m.%d."),
+                        period_start=(wed - timedelta(days=7)).strftime("%Y.%m.%d."),
+                        period_end=(wed - timedelta(days=1)).strftime("%Y.%m.%d."),
+                        plan_start=wed.strftime("%Y.%m.%d."),
+                        plan_end=(wed + timedelta(days=6)).strftime("%Y.%m.%d."),
+                    )
+                    st.download_button(
+                        "💾 Lv8 다운로드",
+                        data=result,
+                        file_name=f"DEBUG_Lv8_{debug_tpl.name}",
+                        mime="application/octet-stream",
+                        use_container_width=True,
+                    )
+                    st.info("Lv8 = production 과 동일하지만 _patch_zip_flag_bits 무효화.")
+                finally:
+                    he._patch_zip_flag_bits = original_patch
+
     # 수요일 기준(보고일): 실적=지난주 수요일~이번주 화요일, 계획=이번주 수요일~다음주 화요일
     period_start = (wed - timedelta(days=7)).strftime("%Y.%m.%d.")  # 지난주 수요일
     period_end = (wed - timedelta(days=1)).strftime("%Y.%m.%d.")    # 이번주 화요일
