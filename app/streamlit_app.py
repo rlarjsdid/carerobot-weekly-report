@@ -209,7 +209,9 @@ def admin_page():
 
     title_date = st.text_input("제목 날짜", title_date)
 
-    template_files = sorted(Path("..").glob("돌봄로봇_업무보고*.hwpx"))
+    # 레포 루트 (streamlit_app.py의 부모의 부모)에서 HWPX 템플릿 찾기
+    repo_root = Path(__file__).resolve().parent.parent
+    template_files = sorted(repo_root.glob("돌봄로봇_업무보고*.hwpx"))
     template_path = st.selectbox(
         "템플릿 HWPX 파일",
         template_files,
