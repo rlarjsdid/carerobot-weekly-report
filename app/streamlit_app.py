@@ -288,7 +288,135 @@ def admin_page():
                     mime="application/octet-stream",
                     use_container_width=True,
                 )
-                st.info("다운 후 한글에서 열어보세요. 열리면 → 제 수정 로직 문제. 안 열리면 → 다운로드 경로 문제.")
+                st.info("다운 후 한글에서 열어보세요.")
+
+            st.markdown("---")
+            st.caption("**증분 디버그**: 어느 수정이 깨뜨리는지 좁히기")
+
+            import zipfile
+            import io as _io
+
+            # Level 1: ZIP 재포장만 (section0.xml 내용은 원본 그대로)
+            if st.button("🔬 Lv1: ZIP 재포장만 (내용 수정 0)",
+                         use_container_width=True):
+                from hwpx_exporter import _patch_zip_flag_bits
+                src = debug_tpl.read_bytes()
+                with zipfile.ZipFile(_io.BytesIO(src), 'r') as zin:
+                    order = [i.filename for i in zin.infolist()]
+                    infos = {i.filename: i for i in zin.infolist()}
+                    files = {n: zin.read(n) for n in order}
+                buf = _io.BytesIO()
+                with zipfile.ZipFile(buf, 'w') as zout:
+                    for name in order:
+                        orig = infos[name]
+                        zi = zipfile.ZipInfo(name, date_time=orig.date_time)
+                        zi.compress_type = orig.compress_type
+                        zi.external_attr = orig.external_attr
+                        zi.create_system = orig.create_system
+                        zi.create_version = orig.create_version
+                        zi.extract_version = orig.extract_version
+                        zi.flag_bits = orig.flag_bits
+                        zi.extra = orig.extra
+                        zout.writestr(zi, files[name])
+                result = _patch_zip_flag_bits(buf.getvalue(), infos)
+                st.download_button(
+                    "💾 Lv1 다운로드",
+                    data=result,
+                    file_name=f"DEBUG_Lv1_{debug_tpl.name}",
+                    mime="application/octet-stream",
+                    use_container_width=True,
+                )
+                st.info("Lv1 = 수정 전혀 없이 ZIP만 다시 패키징. 안 열리면 ZIP 재포장 자체가 문제.")
+
+            # Level 2: title/기간 date regex 치환만
+            if st.button("🔬 Lv2: title+기간 날짜만 수정",
+                         use_container_width=True):
+                import re
+                from hwpx_exporter import _patch_zip_flag_bits
+                src = debug_tpl.read_bytes()
+                with zipfile.ZipFile(_io.BytesIO(src), 'r') as zin:
+                    order = [i.filename for i in zin.infolist()]
+                    infos = {i.filename: i for i in zin.infolist()}
+                    files = {n: zin.read(n) for n in order}
+                xml = files['Contents/section0.xml'].decode('utf-8')
+                xml = re.sub(r'과업별 업무 보고 \(\d{2}\.\d{2}\.\d{2}\.\)',
+                             f'과업별 업무 보고 ({wed.strftime("%y.%m.%d.")})', xml)
+                xml = re.sub(
+                    r'업무 실적\(\d{4}\.\d{2}\.\d{2}\. ~ \d{4}\.\d{2}\.\d{2}\.\)',
+                    f'업무 실적({(wed - timedelta(days=7)).strftime("%Y.%m.%d.")} ~ {(wed - timedelta(days=1)).strftime("%Y.%m.%d.")})', xml)
+                xml = re.sub(
+                    r'업무 계획\(\d{4}\.\d{2}\.\d{2}\. ~ \d{4}\.\d{2}\.\d{2}\.\)',
+                    f'업무 계획({wed.strftime("%Y.%m.%d.")} ~ {(wed + timedelta(days=6)).strftime("%Y.%m.%d.")})', xml)
+                files['Contents/section0.xml'] = xml.encode('utf-8')
+
+                buf = _io.BytesIO()
+                with zipfile.ZipFile(buf, 'w') as zout:
+                    for name in order:
+                        orig = infos[name]
+                        zi = zipfile.ZipInfo(name, date_time=orig.date_time)
+                        zi.compress_type = orig.compress_type
+                        zi.external_attr = orig.external_attr
+                        zi.create_system = orig.create_system
+                        zi.create_version = orig.create_version
+                        zi.extract_version = orig.extract_version
+                        zi.flag_bits = orig.flag_bits
+                        zi.extra = orig.extra
+                        zout.writestr(zi, files[name])
+                result = _patch_zip_flag_bits(buf.getvalue(), infos)
+                st.download_button(
+                    "💾 Lv2 다운로드",
+                    data=result,
+                    file_name=f"DEBUG_Lv2_{debug_tpl.name}",
+                    mime="application/octet-stream",
+                    use_container_width=True,
+                )
+                st.info("Lv2 = 제목 날짜 + 실적/계획 기간 날짜만 regex 로 치환. 셀 내용 수정은 0.")
+
+            # Level 3: Lv2 + 김건양 연구실적 1개 셀만 수정
+            if st.button("🔬 Lv3: Lv2 + 김건양 연구실적 1칸만 수정",
+                         use_container_width=True):
+                import re
+                from hwpx_exporter import _patch_zip_flag_bits, replace_cell
+                src = debug_tpl.read_bytes()
+                with zipfile.ZipFile(_io.BytesIO(src), 'r') as zin:
+                    order = [i.filename for i in zin.infolist()]
+                    infos = {i.filename: i for i in zin.infolist()}
+                    files = {n: zin.read(n) for n in order}
+                xml = files['Contents/section0.xml'].decode('utf-8')
+                xml = re.sub(r'과업별 업무 보고 \(\d{2}\.\d{2}\.\d{2}\.\)',
+                             f'과업별 업무 보고 ({wed.strftime("%y.%m.%d.")})', xml)
+                xml = re.sub(
+                    r'업무 실적\(\d{4}\.\d{2}\.\d{2}\. ~ \d{4}\.\d{2}\.\d{2}\.\)',
+                    f'업무 실적({(wed - timedelta(days=7)).strftime("%Y.%m.%d.")} ~ {(wed - timedelta(days=1)).strftime("%Y.%m.%d.")})', xml)
+                xml = re.sub(
+                    r'업무 계획\(\d{4}\.\d{2}\.\d{2}\. ~ \d{4}\.\d{2}\.\d{2}\.\)',
+                    f'업무 계획({wed.strftime("%Y.%m.%d.")} ~ {(wed + timedelta(days=6)).strftime("%Y.%m.%d.")})', xml)
+                # 김건양 연구실적 한 셀만 (04.24 구조: col 4, row 14)
+                xml = replace_cell(xml, 4, 14, "테스트 연구실적 한 줄")
+                files['Contents/section0.xml'] = xml.encode('utf-8')
+
+                buf = _io.BytesIO()
+                with zipfile.ZipFile(buf, 'w') as zout:
+                    for name in order:
+                        orig = infos[name]
+                        zi = zipfile.ZipInfo(name, date_time=orig.date_time)
+                        zi.compress_type = orig.compress_type
+                        zi.external_attr = orig.external_attr
+                        zi.create_system = orig.create_system
+                        zi.create_version = orig.create_version
+                        zi.extract_version = orig.extract_version
+                        zi.flag_bits = orig.flag_bits
+                        zi.extra = orig.extra
+                        zout.writestr(zi, files[name])
+                result = _patch_zip_flag_bits(buf.getvalue(), infos)
+                st.download_button(
+                    "💾 Lv3 다운로드",
+                    data=result,
+                    file_name=f"DEBUG_Lv3_{debug_tpl.name}",
+                    mime="application/octet-stream",
+                    use_container_width=True,
+                )
+                st.info("Lv3 = Lv2 + replace_cell 한 번 호출 (김건양 연구실적 r14 c4).")
 
     # 수요일 기준(보고일): 실적=지난주 수요일~이번주 화요일, 계획=이번주 수요일~다음주 화요일
     period_start = (wed - timedelta(days=7)).strftime("%Y.%m.%d.")  # 지난주 수요일
