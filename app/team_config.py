@@ -22,8 +22,9 @@ TEAM_MEMBERS = [
             "research_plan": (5, 2),
             "task_done": (4, 3),
             "task_plan": (5, 3),
-            # 스마트돌봄스페이스 (백정은 전용)
-            "smart_care_space": (4, 27),
+            # 스마트돌봄스페이스 (백정은 전용) — 실적/계획 2칸
+            "smart_care_space_done": (4, 27),
+            "smart_care_space_plan": (5, 27),
         },
     },
     {
@@ -137,7 +138,8 @@ FIELD_LABELS = {
     "research_plan": "연구 계획",
     "task_done": "업무 실적",
     "task_plan": "업무 계획",
-    "smart_care_space": "스마트돌봄스페이스",
+    "smart_care_space_done": "스마트돌봄스페이스 — 업무 실적",
+    "smart_care_space_plan": "스마트돌봄스페이스 — 업무 계획",
     "project_confirmation_1": "사업단 공통확인사항 1",
     "project_confirmation_2_done": "사업단 공통확인사항 2 — 업무 실적",
     "project_confirmation_2_plan": "사업단 공통확인사항 2 — 업무 계획",
@@ -160,7 +162,7 @@ def get_fields_for(member):
     """해당 팀원이 작성해야 할 필드 이름 리스트 (표시 순서대로)."""
     order = ["acquired_data", "research_done", "research_plan",
              "task_done", "task_plan",
-             "smart_care_space",
+             "smart_care_space_done", "smart_care_space_plan",
              "project_confirmation_1",
              "project_confirmation_2_done", "project_confirmation_2_plan",
              "research_meeting", "director_meeting", "mohw_weekly"]

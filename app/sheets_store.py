@@ -5,9 +5,11 @@
 """
 import gspread
 from google.oauth2.service_account import Credentials
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import streamlit as st
 from team_config import MEMBER_NAMES
+
+KST = timezone(timedelta(hours=9))
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -20,7 +22,8 @@ FIELD_KEYS = [
     "research_plan",
     "task_done",
     "task_plan",
-    "smart_care_space",
+    "smart_care_space_done",
+    "smart_care_space_plan",
     "project_confirmation_1",
     "project_confirmation_2_done",
     "project_confirmation_2_plan",
@@ -35,7 +38,8 @@ FIELD_LABELS_KR = {
     "research_plan": "연구계획",
     "task_done": "업무실적",
     "task_plan": "업무계획",
-    "smart_care_space": "스마트돌봄스페이스",
+    "smart_care_space_done": "스마트돌봄스페이스_실적",
+    "smart_care_space_plan": "스마트돌봄스페이스_계획",
     "project_confirmation_1": "사업단공통확인사항1",
     "project_confirmation_2_done": "사업단공통확인사항2_실적",
     "project_confirmation_2_plan": "사업단공통확인사항2_계획",
@@ -97,7 +101,7 @@ def save_submission(name: str, week: str, values: dict) -> str:
     """values = {필드키: 텍스트} — FIELD_KEYS의 부분 집합. 누락은 빈 문자열로 저장."""
     ws = _get_sheet()
     _ensure_header(ws)
-    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    now = datetime.now(KST).strftime("%Y-%m-%d %H:%M")
     field_values = [values.get(k, "") for k in FIELD_KEYS]
     new_row = [name, week] + field_values + [now]
 

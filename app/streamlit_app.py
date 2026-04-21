@@ -27,14 +27,32 @@ def wednesday_of_week(week_str: str) -> datetime:
 
 
 def auth_gate():
+    # URL 쿼리 파라미터로 로그인 유지 (새로고침 대응)
+    qp = st.query_params
+    if not st.session_state.get("authed"):
+        token = qp.get("auth")
+        if token == "team":
+            st.session_state["authed"] = True
+            st.session_state["is_admin"] = False
+        elif token == "admin":
+            st.session_state["authed"] = True
+            st.session_state["is_admin"] = True
+
     if st.session_state.get("authed"):
         return True
+
     st.title("📋 돌봄로봇 주간 업무보고")
     pw = st.text_input("비밀번호", type="password", key="pw_input")
     if st.button("입장"):
-        if pw == APP_PASSWORD or pw == ADMIN_PASSWORD:
+        if pw == APP_PASSWORD:
             st.session_state["authed"] = True
-            st.session_state["is_admin"] = (pw == ADMIN_PASSWORD)
+            st.session_state["is_admin"] = False
+            st.query_params["auth"] = "team"
+            st.rerun()
+        elif pw == ADMIN_PASSWORD:
+            st.session_state["authed"] = True
+            st.session_state["is_admin"] = True
+            st.query_params["auth"] = "admin"
             st.rerun()
         else:
             st.error("비밀번호가 올바르지 않습니다.")
@@ -123,7 +141,7 @@ def member_page():
                 )
 
         extra_fields = [f for f in fields if f in (
-            "smart_care_space",
+            "smart_care_space_done", "smart_care_space_plan",
             "project_confirmation_1",
             "project_confirmation_2_done", "project_confirmation_2_plan",
             "research_meeting", "director_meeting", "mohw_weekly")]
@@ -143,6 +161,18 @@ def member_page():
         try:
             action = save_submission(name, week, values)
             st.success(f"저장 완료 ({'신규 제출' if action=='created' else '기존 내용 수정'})")
+            # 개인 백업 텍스트 생성 → 다운로드 버튼 제공
+            lines = [f"=== {name} / {week} ===\n"]
+            for f in get_fields_for(member):
+                v = values.get(f, "") or ""
+                lines.append(f"\n[{FIELD_LABELS[f]}]\n{v}\n")
+            backup_txt = "".join(lines).encode('utf-8')
+            st.download_button(
+                "📄 내 제출본 TXT 백업 다운로드 (권장: 매주 저장해두세요)",
+                data=backup_txt,
+                file_name=f"{name}_{week}.txt",
+                mime="text/plain",
+            )
         except Exception as e:
             st.error(f"저장 실패: {e}")
 
@@ -234,6 +264,19 @@ def admin_page():
                 return
 
             submissions = load_week(week)
+
+            # 미제출자는 지난주 내용 fallback (완전 미제출인 사람만)
+            last_week_str = (wed - timedelta(days=7)).strftime("%Y-%m-%d")
+            last_week_subs = load_week(last_week_str)
+            fallback_used = []
+            for name in MEMBER_NAMES:
+                if name not in submissions and name in last_week_subs:
+                    submissions[name] = last_week_subs[name]
+                    fallback_used.append(name)
+            if fallback_used:
+                st.info(f"🔄 이번주 미제출 {len(fallback_used)}명은 지난주 내용으로 대체: "
+                        f"{', '.join(fallback_used)}")
+
             result = build_report(
                 template_bytes, submissions,
                 title_date=title_date,
@@ -267,6 +310,7 @@ def main():
         if st.button("로그아웃"):
             for k in ["authed", "is_admin"]:
                 st.session_state.pop(k, None)
+            st.query_params.clear()
             st.rerun()
 
     if mode == "업무보고 작성":
