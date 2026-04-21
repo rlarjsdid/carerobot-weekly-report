@@ -180,6 +180,13 @@ def build_report(template_bytes: bytes, submissions: dict,
             else:
                 raise ValueError(f"잘못된 셀 명세: {spec}")
             text = data.get(field, "")
+            # acquired_data 필드: "획득 데이터:" prefix 없으면 자동 추가
+            if field == "acquired_data":
+                stripped = text.strip()
+                if stripped and not stripped.startswith("획득 데이터"):
+                    text = f"획득 데이터: {stripped}"
+                elif not stripped:
+                    text = "획득 데이터:"
             # 파란색으로 명시된 필드만 override. 검정은 원본 셀 charPr 유지.
             override = color_to_id["blue"] if color == "blue" else None
             xml = replace_cell(xml, col, row, text,
