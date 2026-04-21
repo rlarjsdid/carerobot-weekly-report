@@ -514,6 +514,60 @@ def admin_page():
                 )
                 st.info("Lv5 = Lv4 + 획득데이터 셀 4개에 파란색 override 추가.")
 
+            # Level 6: 실제 build_report()를 빈 데이터로 호출
+            if st.button("🔬 Lv6: build_report() 빈 데이터로 호출",
+                         use_container_width=True):
+                src = debug_tpl.read_bytes()
+                result = build_report(
+                    src, {},  # 빈 submissions
+                    title_date=wed.strftime("%y.%m.%d."),
+                    period_start=(wed - timedelta(days=7)).strftime("%Y.%m.%d."),
+                    period_end=(wed - timedelta(days=1)).strftime("%Y.%m.%d."),
+                    plan_start=wed.strftime("%Y.%m.%d."),
+                    plan_end=(wed + timedelta(days=6)).strftime("%Y.%m.%d."),
+                )
+                st.download_button(
+                    "💾 Lv6 다운로드",
+                    data=result,
+                    file_name=f"DEBUG_Lv6_{debug_tpl.name}",
+                    mime="application/octet-stream",
+                    use_container_width=True,
+                )
+                st.info("Lv6 = 실제 build_report() 함수를 빈 제출 데이터로 호출. 35+개 셀 모두 수정됨 (빈 값으로).")
+
+            # Level 7: Lv6 + 멀티라인 텍스트
+            if st.button("🔬 Lv7: build_report() 멀티라인 테스트 데이터",
+                         use_container_width=True):
+                src = debug_tpl.read_bytes()
+                test_subs = {m['name']: {
+                    'acquired_data': f'{m["name"]} 획득',
+                    'research_done': f'1. {m["name"]} 연구 1\n2. 연구 2\n3. 연구 3',
+                    'research_plan': f'{m["name"]} 계획\n- 세부 1\n- 세부 2',
+                    'task_done': f'1. {m["name"]} 업무\n2. 업무 추가',
+                    'task_plan': f'{m["name"]} 계획',
+                    'smart_care_space_done': '스페이스 실적\n- A\n- B',
+                    'smart_care_space_plan': '스페이스 계획',
+                    'research_meeting': '회의 1\n회의 2',
+                    'director_meeting': '주간 회의',
+                    'mohw_weekly': '보산진 일정',
+                } for m in TEAM_MEMBERS}
+                result = build_report(
+                    src, test_subs,
+                    title_date=wed.strftime("%y.%m.%d."),
+                    period_start=(wed - timedelta(days=7)).strftime("%Y.%m.%d."),
+                    period_end=(wed - timedelta(days=1)).strftime("%Y.%m.%d."),
+                    plan_start=wed.strftime("%Y.%m.%d."),
+                    plan_end=(wed + timedelta(days=6)).strftime("%Y.%m.%d."),
+                )
+                st.download_button(
+                    "💾 Lv7 다운로드",
+                    data=result,
+                    file_name=f"DEBUG_Lv7_{debug_tpl.name}",
+                    mime="application/octet-stream",
+                    use_container_width=True,
+                )
+                st.info("Lv7 = build_report() + 10명 모두에게 멀티라인 테스트 데이터.")
+
     # 수요일 기준(보고일): 실적=지난주 수요일~이번주 화요일, 계획=이번주 수요일~다음주 화요일
     period_start = (wed - timedelta(days=7)).strftime("%Y.%m.%d.")  # 지난주 수요일
     period_end = (wed - timedelta(days=1)).strftime("%Y.%m.%d.")    # 이번주 화요일
