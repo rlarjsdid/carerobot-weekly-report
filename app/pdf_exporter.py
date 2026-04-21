@@ -21,9 +21,11 @@ from reportlab.pdfbase.ttfonts import TTFont
 from team_config import TEAM_MEMBERS, FIELD_LABELS, get_fields_for
 
 FONT_NAME = "KoreanFont"
+# 번들 폰트가 최우선 (배포 환경 독립적으로 확실히 작동)
+_BUNDLED_FONT = Path(__file__).parent / "fonts" / "NanumGothic-Regular.ttf"
 _FONT_CANDIDATES = [
+    str(_BUNDLED_FONT),
     "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
-    "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",
     "C:\\Windows\\Fonts\\malgun.ttf",
     "C:\\Windows\\Fonts\\NanumGothic.ttf",
     "/System/Library/Fonts/AppleSDGothicNeo.ttc",
@@ -39,8 +41,7 @@ def _register_font() -> str:
                 return FONT_NAME
             except Exception:
                 continue
-    # 폴백: reportlab 기본 폰트 (한글 깨질 수 있음)
-    return "Helvetica"
+    return "Helvetica"  # 최후 폴백 (한글 깨짐)
 
 
 def build_pdf(submissions: dict, title_date: str,
