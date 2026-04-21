@@ -15,55 +15,44 @@ CHARPR_BLACK = "15"
 COLOR_HEX = {"black": "#000000", "blue": "#0000FF"}
 
 
-DEFAULT_P_ATTRS = (
-    'id="0" paraPrIDRef="27" styleIDRef="0" '
-    'pageBreak="0" columnBreak="0" merged="0"'
-)
-DEFAULT_LINESEG = (
-    '<hp:linesegarray>'
-    '<hp:lineseg textpos="0" vertpos="0" vertsize="1100" textheight="1100" '
-    'baseline="935" spacing="164" horzpos="0" horzsize="31508" flags="393216"/>'
-    '</hp:linesegarray>'
-)
+def _escape_text(text: str) -> str:
+    return html.escape(text)
 
 
-def make_paragraph_from_template(text, p_attrs, run_char_pr_id, lineseg_xml):
-    """원본 셀 문단의 속성을 유지하면서 텍스트만 교체한 새 문단 생성."""
-    escaped = html.escape(text)
-    return (
-        f'<hp:p {p_attrs}>'
-        f'<hp:run charPrIDRef="{run_char_pr_id}"><hp:t>{escaped}</hp:t></hp:run>'
-        f'{lineseg_xml}</hp:p>'
-    )
+def _clone_paragraph_with_text(p_template_xml: str, line_text: str,
+                               override_color_id=None, first_paragraph=True) -> str:
+    """원본 문단 XML을 통째로 복제하고 텍스트만 교체.
 
+    3가지 run 패턴 모두 처리:
+      1) <hp:run ...><hp:t>기존 내용</hp:t></hp:run>  → hp:t 내용만 교체
+      2) <hp:run ...></hp:run> (빈 run)              → hp:t 추가
+      3) <hp:run .../>         (self-closing)        → hp:t 포함 형태로 확장
+    """
+    escaped = _escape_text(line_text)
+    new_p = p_template_xml
 
-def extract_cell_template(content_xml):
-    """셀 내부 XML에서 첫 번째 <hp:p>의 속성·charPr·lineseg 추출.
-    반환: (p_attrs_str, run_char_pr_id_or_None, lineseg_xml_str)"""
-    p_m = re.search(r'<hp:p\s+([^>]*)>', content_xml)
-    p_attrs = p_m.group(1) if p_m else DEFAULT_P_ATTRS
-    # id는 0으로 통일 (원본이 0 또는 2147483648 다양)
-    p_attrs = re.sub(r'id="\d+"', 'id="0"', p_attrs)
+    # 1) hp:t 존재 여부 확인
+    if re.search(r'<hp:t>[^<]*</hp:t>', new_p):
+        new_p = re.sub(r'<hp:t>[^<]*</hp:t>',
+                       f'<hp:t>{escaped}</hp:t>', new_p, count=1)
+    else:
+        # 2) 빈 <hp:run ...></hp:run>
+        if re.search(r'<hp:run\b[^>]*></hp:run>', new_p):
+            new_p = re.sub(r'(<hp:run\b[^>]*>)</hp:run>',
+                           rf'\1<hp:t>{escaped}</hp:t></hp:run>',
+                           new_p, count=1)
+        else:
+            # 3) self-closing <hp:run .../>
+            new_p = re.sub(r'<hp:run\b([^/]*)/>',
+                           rf'<hp:run\1><hp:t>{escaped}</hp:t></hp:run>',
+                           new_p, count=1)
 
-    run_m = re.search(r'<hp:run\s+charPrIDRef="(\d+)"', content_xml)
-    run_char_pr_id = run_m.group(1) if run_m else None
-
-    ls_m = re.search(r'<hp:linesegarray>.*?</hp:linesegarray>', content_xml, re.DOTALL)
-    lineseg_xml = ls_m.group(0) if ls_m else DEFAULT_LINESEG
-
-    return p_attrs, run_char_pr_id, lineseg_xml
-
-
-def make_cell_content(text, cell_template, override_color_id=None):
-    """cell_template = (p_attrs, orig_char_pr, lineseg). override_color_id 있으면 색상 덮어씀."""
-    p_attrs, orig_char_pr, lineseg = cell_template
-    # 원본 셀 charPr 우선, 없으면 검정 기본값. 파란색 필드만 override.
-    run_id = override_color_id if override_color_id is not None else (orig_char_pr or CHARPR_BLACK)
-    lines = (text or "").splitlines() or [""]
-    return "".join(
-        make_paragraph_from_template(line, p_attrs, run_id, lineseg)
-        for line in lines
-    )
+    if not first_paragraph:
+        new_p = re.sub(r'(<hp:p\s+)id="\d+"', r'\1id="0"', new_p, count=1)
+    if override_color_id is not None:
+        new_p = re.sub(r'(<hp:run\b[^/>]*charPrIDRef=")\d+(")',
+                       rf'\g<1>{override_color_id}\g<2>', new_p, count=1)
+    return new_p
 
 
 def find_cell_sublist(xml, col, row, nth=0):
@@ -90,15 +79,28 @@ def find_cell_sublist(xml, col, row, nth=0):
 
 
 def replace_cell(xml, col, row, text, override_color_id=None, nth=0):
-    """셀 내부를 text로 교체. 원본 셀 문단 속성(paraPr/charPr/lineseg)은 유지하고,
-    override_color_id가 주어지면 run의 charPrIDRef만 그 값으로 강제."""
+    """셀 내부의 첫 <hp:p>...</hp:p> 를 템플릿으로 통째로 복제해 텍스트만 교체.
+    원본 문단의 paraPr / charPr / lineseg / id 등 모든 속성이 그대로 보존됨."""
     start, end = find_cell_sublist(xml, col, row, nth=nth)
     if start is None:
         return xml
     old_content = xml[start:end]
-    cell_template = extract_cell_template(old_content)
-    new_content = make_cell_content(text, cell_template, override_color_id)
-    return xml[:start] + new_content + xml[end:]
+    # 첫 <hp:p>...</hp:p> 전체 블록 추출
+    p_m = re.search(r'<hp:p\b[^>]*>.*?</hp:p>', old_content, re.DOTALL)
+    if not p_m:
+        return xml  # 템플릿 없으면 건드리지 않음
+    p_template = p_m.group(0)
+
+    lines = (text or "").splitlines() or [""]
+    new_paragraphs = [
+        _clone_paragraph_with_text(
+            p_template, line,
+            override_color_id=override_color_id,
+            first_paragraph=(i == 0),
+        )
+        for i, line in enumerate(lines)
+    ]
+    return xml[:start] + "".join(new_paragraphs) + xml[end:]
 
 
 def ensure_blue_charpr(header_xml: str) -> tuple[str, str]:
