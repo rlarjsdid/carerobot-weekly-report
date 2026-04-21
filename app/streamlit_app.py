@@ -192,11 +192,11 @@ def admin_page():
         st.error("주차 형식이 잘못되었습니다 (YYYY-MM-DD).")
         return
 
-    # 수요일 기준: 실적=지난주 목요일~이번주 수요일, 계획=이번주 목요일~다음주 수요일
-    period_start = (wed - timedelta(days=6)).strftime("%Y.%m.%d.")
-    period_end = wed.strftime("%Y.%m.%d.")
-    plan_start = (wed + timedelta(days=1)).strftime("%Y.%m.%d.")
-    plan_end = (wed + timedelta(days=7)).strftime("%Y.%m.%d.")
+    # 수요일 기준(보고일): 실적=지난주 수요일~이번주 화요일, 계획=이번주 수요일~다음주 화요일
+    period_start = (wed - timedelta(days=7)).strftime("%Y.%m.%d.")  # 지난주 수요일
+    period_end = (wed - timedelta(days=1)).strftime("%Y.%m.%d.")    # 이번주 화요일
+    plan_start = wed.strftime("%Y.%m.%d.")                          # 이번주 수요일
+    plan_end = (wed + timedelta(days=6)).strftime("%Y.%m.%d.")      # 다음주 화요일
     title_date = wed.strftime("%y.%m.%d.")
 
     c1, c2 = st.columns(2)
