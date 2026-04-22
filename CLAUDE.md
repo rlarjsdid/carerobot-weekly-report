@@ -118,6 +118,8 @@
 - **"템플릿 HWPX를 선택하거나 업로드해주세요"** → 레포 루트에 `돌봄로봇_업무보고*.hwpx` 파일이 있는지 확인
 - **"서비스 계정 인증 실패"** → Streamlit Cloud Secrets에 `secrets.toml` 전체 내용 붙여넣었는지 확인
 - **"시트를 열 수 없음"** → 구글시트의 공유 설정에 서비스 계정 이메일(`streamlit-bot@molten-guide-469800-e0.iam.gserviceaccount.com`)이 편집자로 있는지 확인
+- **HWPX가 한글에서 "파일 손상" 에러로 안 열림** → `TROUBLESHOOTING.md` 의 "1. HWPX 생성본이 한글에서..." 섹션 참고. 탭 문자·자간·flag_bits 등 과거 범인 5종과 재발 시 체크리스트가 정리되어 있음
+- **기타 과거 비자명 오류 기록** → `TROUBLESHOOTING.md` 전체
 
 ## 세팅 초기 이력
 
